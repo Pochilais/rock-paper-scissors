@@ -3,51 +3,49 @@
 import random
 from collections import Counter
 
-def player(prev_play, opponent_history=[], memory={}):
-    # Reiniciar memoria en nueva partida
-    if not opponent_history:
-        memory.clear()
-        memory['moves'] = ['R', 'P', 'S']
-        memory['freq'] = {'R': 0, 'P': 0, 'S': 0}
-        memory['last_move'] = ''
-        memory['counter'] = {'R': 'P', 'P': 'S', 'S': 'R'}
-        memory['pattern_len'] = 3
-        memory['play_order'] = {}
-        memory['game_count'] = 0
-
-    opponent_history.append(prev_play)
-    memory['game_count'] += 1
-
-    # Actualizar frecuencias
-    if prev_play:
-        memory['freq'][prev_play] += 1
-
-    # --- Predicción basada en patrones ---
-    def predict_pattern(history, pattern_len=3):
-        play_order = memory.get('play_order', {})
-        if len(history) < pattern_len + 1:
-            return random.choice(memory['moves'])
-
-        last_pattern = ''.join(history[-pattern_len:])
-        play_order[last_pattern] = play_order.get(last_pattern, 0) + 1
-        memory['play_order'] = play_order
-
-        potential_plays = [k for k in play_order if k.startswith(last_pattern[1:])]
-
-        if potential_plays:
-            next_move = max(potential_plays, key=lambda x: play_order[x])[-1]
-            return memory['counter'][next_move]
-        return random.choice(memory['moves'])
-
-    # --- Jugada principal ---
-    if memory['game_count'] < 5:
-        guess = random.choice(memory['moves'])  # Aleatorio al inicio
-    else:
-        freq_move = max(memory['freq'], key=memory['freq'].get)
-        guess = memory['counter'][freq_move]  # Contra movida más común
-        pattern_guess = predict_pattern(opponent_history)
-        guess = pattern_guess  # Usamos predicción de patrones
-
-    memory['last_move'] = guess
-    return guess
+def player(prev_play, opponent_history=[], memory={
+    "patterns": {},
+    "last_move": "",
+    "counter_moves": {"R": "P", "P": "S", "S": "R"},
+    "freq": {"R": 0, "P": 0, "S": 0},
+    "game_count": 0,
+    "pattern_len": 3
+}):
     
+    # Reiniciar memoria al inicio de una nueva partida
+    if not prev_play:
+        memory["patterns"] = {}
+        memory["freq"] = {"R": 0, "P": 0, "S": 0}
+        memory["game_count"] = 0
+        memory["last_move"] = ""
+    
+    opponent_history.append(prev_play)
+    memory["game_count"] += 1
+
+    # Actualizar frecuencia de jugadas del oponente
+    if prev_play:
+        memory["freq"][prev_play] += 1
+
+    # Predicción basada en patrones (Markov-like)
+    def predict_next(history, pattern_len=memory["pattern_len"]):
+        if len(history) < pattern_len + 1:
+            return random.choice(["R", "P", "S"])
+        
+        last_pattern = "".join(history[-pattern_len:])
+        next_plays = [history[i+pattern_len] for i in range(len(history)-pattern_len) if "".join(history[i:i+pattern_len]) == last_pattern]
+
+        if next_plays:
+            most_common = Counter(next_plays).most_common(1)[0][0]
+            return memory["counter_moves"][most_common]
+        return random.choice(["R", "P", "S"])
+
+    # --- Estrategia inicial aleatoria ---
+    if memory["game_count"] < 5:
+        guess = random.choice(["R", "P", "S"])
+    else:
+        freq_move = max(memory["freq"], key=memory["freq"].get)
+        pattern_guess = predict_next(opponent_history)
+        guess = pattern_guess
+    
+    memory["last_move"] = guess
+    return guess
